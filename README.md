@@ -1,3 +1,9 @@
+# Imformation
+modify from (https://github.com/longcw/faster_rcnn_pytorch)          
+fix up some bugs about GPU memory leak and can run in python3            
+work in python3.6, pytorch0.4.0          
+GTX 1060(6G)
+
 # Faster RCNN with PyTorch
 **Note:** I re-implemented faster rcnn in this project when I started learning PyTorch. Then I use PyTorch in all of my projects. I still remember it costed one week for me to figure out how to build cuda code as a pytorch layer :).
 But actually this is not a good implementation and I didn't achieve the same mAP as the original caffe code. 
