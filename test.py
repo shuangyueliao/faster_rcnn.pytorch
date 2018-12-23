@@ -1,9 +1,8 @@
 import os
-import torch
 import cv2
-import cPickle
+import pickle as cPickle
 import numpy as np
-
+import torch
 from faster_rcnn import network
 from faster_rcnn.faster_rcnn import FasterRCNN, RPN
 from faster_rcnn.utils.timer import Timer
@@ -19,14 +18,15 @@ from faster_rcnn.fast_rcnn.config import cfg, cfg_from_file, get_output_dir
 imdb_name = 'voc_2007_test'
 cfg_file = 'experiments/cfgs/faster_rcnn_end2end.yml'
 # trained_model = '/media/longc/Data/models/VGGnet_fast_rcnn_iter_70000.h5'
-trained_model = 'models/saved_model3/faster_rcnn_90000.h5'
+trained_model = 'models/saved_model3/faster_rcnn_59400.h5'
+#trained_model = './VGGnet_fast_rcnn_iter_70000.h5'
 
 rand_seed = 1024
 
 save_name = 'faster_rcnn_100000'
 max_per_image = 300
 thresh = 0.05
-vis = False
+vis = True
 
 # ------------
 
@@ -87,62 +87,60 @@ def test_net(name, net, imdb, max_per_image=300, thresh=0.05, vis=False):
     # all detections are collected into:
     #    all_boxes[cls][image] = N x 5 array of detections in
     #    (x1, y1, x2, y2, score)
-    all_boxes = [[[] for _ in xrange(num_images)]
-                 for _ in xrange(imdb.num_classes)]
+    all_boxes = [[[] for _ in range(num_images)]
+                 for _ in range(imdb.num_classes)]
 
     output_dir = get_output_dir(imdb, name)
 
     # timers
     _t = {'im_detect': Timer(), 'misc': Timer()}
     det_file = os.path.join(output_dir, 'detections.pkl')
-
-    for i in range(num_images):
-
-        im = cv2.imread(imdb.image_path_at(i))
-        _t['im_detect'].tic()
-        scores, boxes = im_detect(net, im)
-        detect_time = _t['im_detect'].toc(average=False)
-
-        _t['misc'].tic()
-        if vis:
-            # im2show = np.copy(im[:, :, (2, 1, 0)])
-            im2show = np.copy(im)
-
-        # skip j = 0, because it's the background class
-        for j in xrange(1, imdb.num_classes):
-            inds = np.where(scores[:, j] > thresh)[0]
-            cls_scores = scores[inds, j]
-            cls_boxes = boxes[inds, j * 4:(j + 1) * 4]
-            cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis])) \
-                .astype(np.float32, copy=False)
-            keep = nms(cls_dets, cfg.TEST.NMS)
-            cls_dets = cls_dets[keep, :]
+    with torch.no_grad():
+        for i in range(num_images):
+    
+            im = cv2.imread(imdb.image_path_at(i))
+            _t['im_detect'].tic()
+            scores, boxes = im_detect(net, im)
+            detect_time = _t['im_detect'].toc(average=False)
+    
+            _t['misc'].tic()
             if vis:
-                im2show = vis_detections(im2show, imdb.classes[j], cls_dets)
-            all_boxes[j][i] = cls_dets
-
-        # Limit to max_per_image detections *over all classes*
-        if max_per_image > 0:
-            image_scores = np.hstack([all_boxes[j][i][:, -1]
-                                      for j in xrange(1, imdb.num_classes)])
-            if len(image_scores) > max_per_image:
-                image_thresh = np.sort(image_scores)[-max_per_image]
-                for j in xrange(1, imdb.num_classes):
-                    keep = np.where(all_boxes[j][i][:, -1] >= image_thresh)[0]
-                    all_boxes[j][i] = all_boxes[j][i][keep, :]
-        nms_time = _t['misc'].toc(average=False)
-
-        print 'im_detect: {:d}/{:d} {:.3f}s {:.3f}s' \
-            .format(i + 1, num_images, detect_time, nms_time)
-
-        if vis:
-            cv2.imshow('test', im2show)
-            cv2.waitKey(1)
-
+                # im2show = np.copy(im[:, :, (2, 1, 0)])
+                im2show = np.copy(im)
+    
+            # skip j = 0, because it's the background class
+            for j in range(1, imdb.num_classes):
+                inds = np.where(scores[:, j] > thresh)[0]
+                cls_scores = scores[inds, j]
+                cls_boxes = boxes[inds, j * 4:(j + 1) * 4]
+                cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis])) \
+                    .astype(np.float32, copy=False)
+                keep = nms(cls_dets, cfg.TEST.NMS)
+                cls_dets = cls_dets[keep, :]
+                if vis:
+                    im2show = vis_detections(im2show, imdb.classes[j], cls_dets)
+                all_boxes[j][i] = cls_dets
+    
+            # Limit to max_per_image detections *over all classes*
+            if max_per_image > 0:
+                image_scores = np.hstack([all_boxes[j][i][:, -1]
+                                          for j in range(1, imdb.num_classes)])
+                if len(image_scores) > max_per_image:
+                    image_thresh = np.sort(image_scores)[-max_per_image]
+                    for j in range(1, imdb.num_classes):
+                        keep = np.where(all_boxes[j][i][:, -1] >= image_thresh)[0]
+                        all_boxes[j][i] = all_boxes[j][i][keep, :]
+            nms_time = _t['misc'].toc(average=False)
+    
+            print('im_detect: {:d}/{:d} {:.3f}s {:.3f}s'.format(i + 1, num_images, detect_time, nms_time))
+    
+            if vis:
+                cv2.imshow('test', im2show)
+                cv2.waitKey(0)
     with open(det_file, 'wb') as f:
         cPickle.dump(all_boxes, f, cPickle.HIGHEST_PROTOCOL)
 
-    print 'Evaluating detections'
+    print('Evaluating detections')
     imdb.evaluate_detections(all_boxes, output_dir)
 
 

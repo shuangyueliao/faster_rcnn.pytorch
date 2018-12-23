@@ -1,4 +1,3 @@
-__author__ = 'tsungyi'
 
 from . import _mask
 

@@ -50,7 +50,7 @@ def load_net(fname, net):
 
 
 def load_pretrained_npy(faster_rcnn_model, fname):
-    params = np.load(fname).item()
+    params = np.load(fname,encoding='latin1').item()
     # vgg16
     vgg16_dict = faster_rcnn_model.rpn.features.state_dict()
     for name, val in vgg16_dict.items():
@@ -116,6 +116,7 @@ def clip_gradient(model, clip_norm):
     totalnorm = np.sqrt(totalnorm)
 
     norm = clip_norm / max(totalnorm, clip_norm)
+    norm=norm.cuda()
     for p in model.parameters():
         if p.requires_grad:
             p.grad.mul_(norm)
